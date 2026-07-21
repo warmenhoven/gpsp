@@ -23,7 +23,8 @@
 direct_sound_struct direct_sound_channel[2];
 gbc_sound_struct gbc_sound_channel[4];
 
-const u32 sound_frequency = GBA_SOUND_FREQUENCY;
+u32 sound_frequency = GBA_SOUND_FREQUENCY;
+u32 sound_freq_bits = 16;
 
 u32 sound_on;
 /* Mix bus. Accumulates all six channels at full 16-bit output scale
@@ -261,10 +262,7 @@ u32 gbc_sound_master_volume;
         break;                                                                \
       }                                                                       \
                                                                               \
-      /* (131072/(2048-rate))*8 / sound_frequency, in 16.16 fixed point.      \
-       * sound_frequency == 2^16 makes this exactly 2^20/(2048-rate).         \
-       * Verified bit-identical to the float form for rate 0..2047.           */ \
-      frequency_step = (fixed16_16)(1048576u / (2048 - rate));                \
+      frequency_step = psg_tone_step(rate);                                   \
                                                                               \
       gs->frequency_step = frequency_step;                                    \
       gs->rate = rate;                                                        \
@@ -433,9 +431,9 @@ void render_gbc_sound()
    * across toolchains/arches (the old float form depended on x87 vs SSE
    * rounding and FMA contraction, and lost mantissa bits for large deltas
    * in the overclock build). In the default build this is exactly
-   * tick_delta * 256. */
+   * tick_delta * 256 at 65536 Hz, tick_delta * 128 at 32768 Hz. */
   fixed16_16 buffer_ticks = (fixed16_16)
-   ((((u64)tick_delta * GBA_SOUND_FREQUENCY) << 16) / GBC_BASE_RATE_INT);
+   ((((u64)tick_delta * sound_frequency) << 16) / GBC_BASE_RATE_INT);
   if (!tick_delta)
     return;
 
@@ -866,4 +864,16 @@ u32 sound_read_samples(s16 *out, u32 frames)
 
    /* Function returns number of frames read */
    return (samples_to_read >> 1);
+}
+
+/* Discard everything queued in the ring and realign all producers and the
+ * consumer. Called on an output-rate change: pending samples were rendered
+ * at the old rate. Costs up to the 512-sample readout holdback of silence
+ * while the ring refills; deterministic. */
+void sound_flush_ring(void)
+{
+   memset(sound_buffer, 0, sizeof(sound_buffer));
+   sound_buffer_base = gbc_sound_buffer_index;
+   direct_sound_channel[0].buffer_index = gbc_sound_buffer_index;
+   direct_sound_channel[1].buffer_index = gbc_sound_buffer_index;
 }
