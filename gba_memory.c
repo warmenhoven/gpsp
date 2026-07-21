@@ -198,6 +198,31 @@ static void sound_control_x(u32 value)
 extern timer_type timer[4];
 static const u32 prescale_table[] = { 0, 6, 8, 10 };
 
+/* Recompute every rate-derived frequency step from primary state. Called on
+ * an output-rate change and after savestate load. Tone/wave recompute from
+ * gs->rate (the ioreg copy goes stale when the sweep unit mutates the rate);
+ * noise recomputes from REG_SOUND4CNT_H (bits 0-2 and 4-7 survive the 0x40FF
+ * write mask). Timer steps use reload << prescale as in count_timer /
+ * trigger_timer; zero reloads are skipped. */
+void sound_frequency_changed(void)
+{
+   u32 i;
+   u16 snd4 = read_ioreg(REG_SOUND4CNT_H);
+
+   gbc_sound_channel[0].frequency_step = psg_tone_step(gbc_sound_channel[0].rate);
+   gbc_sound_channel[1].frequency_step = psg_tone_step(gbc_sound_channel[1].rate);
+   gbc_sound_channel[2].frequency_step = psg_wave_step(gbc_sound_channel[2].rate);
+   gbc_sound_channel[3].frequency_step =
+      psg_noise_step(snd4 & 0x07, (snd4 >> 4) & 0x0F);
+
+   for(i = 0; i < 2; i++)
+   {
+      u32 timer_reload = timer[i].reload << timer[i].prescale;
+      if(timer_reload)
+         sound_update_frequency_step(i);
+   }
+}
+
 #define count_timer(timer_number)                                             \
   timer[timer_number].reload = 0x10000 - value;                               \
   if(timer_number < 2)                                                        \
