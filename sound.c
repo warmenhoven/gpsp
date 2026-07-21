@@ -329,13 +329,16 @@ u32 gbc_sound_master_volume;
   }                                                                           \
 
 /* Volume product carries 22 fractional bits below the old 12-bit grid;
- * keep 4 of them by accumulating at 16-bit scale. Worst-case product is
- * -8 * 2^28 == INT32_MIN, which is representable, so s32 math is safe. */
+ * keep 4 of them by accumulating at 16-bit scale, rounding to nearest.
+ * Overflow-safe in s32: the product spans [-2^31, 7 * 2^28] and adding the
+ * half-LSB 2^17 cannot exceed INT32_MAX nor underflow INT32_MIN. */
 #define gbc_sound_render_sample_right()                                       \
-  sound_buffer[buffer_index + 1] += (current_sample * volume_right) >> 18     \
+  sound_buffer[buffer_index + 1] +=                                           \
+   (current_sample * volume_right + (1 << 17)) >> 18                          \
 
 #define gbc_sound_render_sample_left()                                        \
-  sound_buffer[buffer_index] += (current_sample * volume_left) >> 18          \
+  sound_buffer[buffer_index] +=                                               \
+   (current_sample * volume_left + (1 << 17)) >> 18                           \
 
 #define gbc_sound_render_sample_both()                                        \
   gbc_sound_render_sample_right();                                            \
