@@ -105,7 +105,7 @@ unsigned sound_timer(fixed8_24 frequency_step, u32 channel)
            /* diff can reach +/-65280 and the fraction 65535, so the
             * product needs 64 bits (single smull/mulh on 32-bit targets). */
            s32 dest_sample = current_sample + (s32)
-              (((s64)(next_sample - current_sample) * (fifo_fractional >> 8)) >> 16);
+              ((((s64)(next_sample - current_sample) * (fifo_fractional >> 8)) + (1 << 15)) >> 16);
 
            sound_buffer[buffer_index + 1]     += dest_sample;
 
@@ -119,7 +119,7 @@ unsigned sound_timer(fixed8_24 frequency_step, u32 channel)
         while(fifo_fractional <= 0xFFFFFF)
         {
            s32 dest_sample = current_sample + (s32)
-              (((s64)(next_sample - current_sample) * (fifo_fractional >> 8)) >> 16);
+              ((((s64)(next_sample - current_sample) * (fifo_fractional >> 8)) + (1 << 15)) >> 16);
 
            sound_buffer[buffer_index]     += dest_sample;
 
@@ -133,7 +133,7 @@ unsigned sound_timer(fixed8_24 frequency_step, u32 channel)
         while(fifo_fractional <= 0xFFFFFF)
         {
            s32 dest_sample = current_sample + (s32)
-              (((s64)(next_sample - current_sample) * (fifo_fractional >> 8)) >> 16);
+              ((((s64)(next_sample - current_sample) * (fifo_fractional >> 8)) + (1 << 15)) >> 16);
 
            sound_buffer[buffer_index]     += dest_sample;
            sound_buffer[buffer_index + 1] += dest_sample;
