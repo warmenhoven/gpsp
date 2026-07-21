@@ -139,7 +139,6 @@ extern u32 gbc_sound_master_volume;
 extern u32 gbc_sound_buffer_index;
 extern u32 gbc_sound_last_cpu_ticks;
 
-extern const u32 sound_frequency;
 extern u32 sound_on;
 
 void sound_timer_queue32(u32 channel, u32 value);
